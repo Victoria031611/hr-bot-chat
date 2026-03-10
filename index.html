@@ -99,18 +99,16 @@
     </div>
 
     <script>
-       // 配置项（只保留这两个即可）
-const CONFIG = {
-    API_URL: "/api/chat", // 改为代理接口路径
-    PROJECT_ID: "7615152223546392618"
-};
+        // 配置项（已改为临时跨域代理）
+        const CONFIG = {
+            API_URL: "https://corsproxy.io/?https://h69n9wp3wm.coze.site/stream_run",
+            TOKEN: "Bearer pat_nV10Tg01CNGC0cgBMIsz59uUkyubYx6QqydZ47K4ZdxbN8vD6NMkz1pCLc7S8eRw",
+            PROJECT_ID: "7615152223546392618"
+        };
 
-        // 初始化会话 ID（每次刷新生成新ID，避免上下文冲突）
         let sessionId = Math.random().toString(36).substring(2, 18);
-        // 用于存储当前机器人回复的DOM元素ID
         let currentBotMsgId = '';
         
-        // 发送消息函数
         async function sendMessage() {
             const inputElement = document.getElementById('userInput');
             const sendBtn = document.getElementById('sendBtn');
@@ -119,17 +117,14 @@ const CONFIG = {
             const userText = inputElement.value.trim();
             if (!userText) return;
 
-            // 禁用发送按钮
             sendBtn.disabled = true;
             
-            // 添加用户消息
             chatMessages.innerHTML += `
                 <div class="message user-message">${userText}</div>
             `;
             inputElement.value = '';
             chatMessages.scrollTop = chatMessages.scrollHeight;
 
-            // 添加加载状态
             const loadingId = `loading-${Date.now()}`;
             chatMessages.innerHTML += `
                 <div class="message bot-message loading" id="${loadingId}">正在回复...</div>
@@ -137,7 +132,6 @@ const CONFIG = {
             chatMessages.scrollTop = chatMessages.scrollHeight;
 
             try {
-                // 🔥 修复：请求体结构（type/session_id/project_id在content同级）
                 const payload = {
                     content: {
                         query: {
@@ -150,15 +144,14 @@ const CONFIG = {
                         },
                         type: "query"
                     },
-                    session_id: sessionId,  // 移到content外面
-                    project_id: CONFIG.PROJECT_ID,  // 移到content外面
-                    stream: true  // 显式指定流式响应
+                    session_id: sessionId,
+                    project_id: CONFIG.PROJECT_ID,
+                    stream: true
                 };
 
-                // 🔥 修复：添加跨域配置 + 兼容流式响应
                 const response = await fetch(CONFIG.API_URL, {
                     method: 'POST',
-                    mode: 'cors',  // 跨域配置
+                    mode: 'cors',
                     cache: 'no-cache',
                     headers: {
                         'Authorization': CONFIG.TOKEN,
@@ -170,13 +163,11 @@ const CONFIG = {
 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    throw new Error(`请求失败 [${response.status}]：${errorText.substring(0, 100)}`);
+                    throw new Error(`请求失败 [${response.status}]`);
                 }
 
-                // 🔥 修复：兼容所有浏览器的流式解析逻辑
                 const textDecoder = new TextDecoder();
                 let botResponse = '';
-                // 移除加载状态，创建机器人回复容器
                 document.getElementById(loadingId).remove();
                 currentBotMsgId = `bot-${Date.now()}`;
                 chatMessages.innerHTML += `
@@ -184,7 +175,6 @@ const CONFIG = {
                 `;
                 chatMessages.scrollTop = chatMessages.scrollHeight;
 
-                // 处理流式响应
                 const reader = response.body.getReader();
                 while (true) {
                     const { done, value } = await reader.read();
@@ -200,45 +190,37 @@ const CONFIG = {
                             
                             try {
                                 const parsed = JSON.parse(data);
-                                // 更新会话ID
                                 if (parsed.run_id) sessionId = parsed.run_id;
-                                // 拼接回复内容
                                 if (parsed.content?.answer) {
                                     botResponse += parsed.content.answer;
-                                    // 更新界面
                                     document.getElementById(currentBotMsgId).textContent = botResponse;
                                     chatMessages.scrollTop = chatMessages.scrollHeight;
                                 }
                             } catch (e) {
-                                console.log('解析单条数据失败:', e, '数据内容:', data);
+                                console.log('解析数据失败:', e);
                             }
                         }
                     }
                 }
 
-                // 如果没有回复内容
                 if (botResponse === '') {
                     document.getElementById(currentBotMsgId).textContent = '暂无回复，请稍后再试';
                 }
 
             } catch (error) {
                 console.error('发送消息失败:', error);
-                // 显示错误信息
                 document.getElementById(loadingId).innerHTML = `回复失败：${error.message}`;
             } finally {
-                // 启用发送按钮
                 sendBtn.disabled = false;
             }
         }
 
-        // 回车发送
         document.getElementById('userInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 sendMessage();
             }
         });
 
-        // 欢迎语
         window.onload = function() {
             const chatMessages = document.getElementById('chatMessages');
             chatMessages.innerHTML += `
