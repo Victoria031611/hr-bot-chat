@@ -99,12 +99,11 @@
     </div>
 
     <script>
-        // 配置项（已帮你填好Token，无需修改）
-        const CONFIG = {
-            API_URL: "https://h69n9wp3wm.coze.site/stream_run",
-            TOKEN: "Bearer pat_nV10Tg01CNGC0cgBMIsz59uUkyubYx6QqydZ47K4ZdxbN8vD6NMkz1pCLc7S8eRw",
-            PROJECT_ID: "7615152223546392618"
-        };
+       // 配置项（只保留这两个即可）
+const CONFIG = {
+    API_URL: "/api/chat", // 改为代理接口路径
+    PROJECT_ID: "7615152223546392618"
+};
 
         // 初始化会话 ID（每次刷新生成新ID，避免上下文冲突）
         let sessionId = Math.random().toString(36).substring(2, 18);
