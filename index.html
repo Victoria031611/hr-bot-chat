@@ -1,1 +1,251 @@
-<!DOCTYPE html> <html lang="zh-CN"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>新员工入职智能助手</title> <style> * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Microsoft YaHei", sans-serif; } body { background-color: #f5f7fa; padding: 20px; } .chat-container { max-width: 800px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden; } .chat-header { background-color: #4096ff; color: white; padding: 16px; font-size: 18px; font-weight: bold; text-align: center; } .chat-messages { height: 600px; overflow-y: auto; padding: 20px; background-color: #f9fafc; } .message { margin-bottom: 16px; max-width: 80%; } .user-message { margin-left: auto; background-color: #4096ff; color: white; border-radius: 12px 12px 0 12px; padding: 10px 16px; } .bot-message { margin-right: auto; background-color: white; border: 1px solid #e5e6eb; border-radius: 12px 12px 12px 0; padding: 10px 16px; } .chat-input { display: flex; padding: 16px; border-top: 1px solid #e5e6eb; } #userInput { flex: 1; padding: 12px 16px; border: 1px solid #e5e6eb; border-radius: 24px; outline: none; font-size: 14px; } #sendBtn { margin-left: 12px; padding: 12px 24px; background-color: #4096ff; color: white; border: none; border-radius: 24px; cursor: pointer; font-size: 14px; } #sendBtn:disabled { background-color: #c0c4cc; cursor: not-allowed; } .loading { color: #909399; font-style: italic; } </style> </head> <body> <div class="chat-container"> <div class="chat-header">新员工入职智能助手</div> <div class="chat-messages" id="chatMessages"></div> <div class="chat-input"> <input type="text" id="userInput" placeholder="请输入你的信息（英文名/邮箱/手机号等）..." /> <button id="sendBtn" onclick="sendMessage()">发送</button> </div> </div> <script> // 配置项（替换成你的信息） const CONFIG = { API_URL: "https://h69n9wp3wm.coze.site/stream_run", TOKEN: "Bearer pat_nV10Tg01CNGC0cgBMIsz59uUkyubYx6QqydZ47K4ZdxbN8vD6NMkz1pCLc7S8eRw", // 替换成你的真实 Token PROJECT_ID: "7615152223546392618", SESSION_ID: "zMoMiOG3ZfnIA1bW6sC3w" // 可以保留或随机生成 }; // 初始化会话 ID（可选：每次刷新生成新 ID） let sessionId = CONFIG.SESSION_ID || Math.random().toString(36).substring(2, 15); // 发送消息函数 async function sendMessage() { const inputElement = document.getElementById('userInput'); const sendBtn = document.getElementById('sendBtn'); const chatMessages = document.getElementById('chatMessages'); const userText = inputElement.value.trim(); if (!userText) return; // 禁用发送按钮，防止重复提交 sendBtn.disabled = true; // 添加用户消息到界面 chatMessages.innerHTML += ` <div class="message user-message">${userText}</div> `; inputElement.value = ''; chatMessages.scrollTop = chatMessages.scrollHeight; // 添加加载状态 const loadingId = `loading-${Date.now()}`; chatMessages.innerHTML += ` <div class="message bot-message loading" id="${loadingId}">正在回复...</div> `; chatMessages.scrollTop = chatMessages.scrollHeight; try { // 构造请求体 const payload = { content: { query: { prompt: [ { type: "text", content: userText } ] }, type: "query", session_id: sessionId, project_id: CONFIG.PROJECT_ID } }; // 发送流式请求 const response = await fetch(CONFIG.API_URL, { method: 'POST', headers: { 'Authorization': CONFIG.TOKEN, 'Content-Type': 'application/json', 'Accept': 'text/event-stream' }, body: JSON.stringify(payload) }); if (!response.ok) { throw new Error(`请求失败：${response.status}`); } // 解析流式响应 const reader = response.body.getReader(); const decoder = new TextDecoder('utf-8'); let botResponse = ''; let firstChunk = true; while (true) { const { done, value } = await reader.read(); if (done) break; // 解码并处理数据流 const chunk = decoder.decode(value); const lines = chunk.split('\n'); for (const line of lines) { if (line.startsWith('data: ')) { const dataText = line.substring(6).trim(); if (dataText === '[DONE]') continue; try { const parsed = JSON.parse(dataText); // 更新会话 ID if (parsed.run_id) sessionId = parsed.run_id; // 拼接回复内容 if (parsed.content?.answer) { botResponse += parsed.content.answer; // 第一次获取内容时移除加载状态 if (firstChunk) { document.getElementById(loadingId).remove(); firstChunk = false; } // 更新界面显示 const botMessageId = `bot-${Date.now()}`; // 先移除旧的回复，再添加新的 const existingBotMsg = chatMessages.querySelector(`#${botMessageId}`); if (existingBotMsg) { existingBotMsg.innerHTML = botResponse; } else { chatMessages.innerHTML += ` <div class="message bot-message" id="${botMessageId}">${botResponse}</div> `; } chatMessages.scrollTop = chatMessages.scrollHeight; } } catch (e) { console.log('解析数据失败:', e); } } } } // 如果没有获取到回复 if (firstChunk) { document.getElementById(loadingId).innerHTML = '暂无回复，请稍后再试'; } } catch (error) { console.error('发送消息失败:', error); document.getElementById(loadingId).innerHTML = `回复失败：${error.message}`; } finally { // 启用发送按钮 sendBtn.disabled = false; } } // 绑定回车事件 document.getElementById('userInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { sendMessage(); } }); // 页面加载完成后发送欢迎语（可选） window.onload = function() { const chatMessages = document.getElementById('chatMessages'); chatMessages.innerHTML += ` <div class="message bot-message">您好！我是新员工入职智能助手，请先提供您的英文名（用于工作邮箱），感谢配合！</div> `; }; </script> </body> </html>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新员工入职智能助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+        body {
+            background-color: #f5f7fa;
+            padding: 20px;
+        }
+        .chat-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .chat-header {
+            background-color: #4096ff;
+            color: white;
+            padding: 16px;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .chat-messages {
+            height: 600px;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: #f9fafc;
+        }
+        .message {
+            margin-bottom: 16px;
+            max-width: 80%;
+        }
+        .user-message {
+            margin-left: auto;
+            background-color: #4096ff;
+            color: white;
+            border-radius: 12px 12px 0 12px;
+            padding: 10px 16px;
+        }
+        .bot-message {
+            margin-right: auto;
+            background-color: white;
+            border: 1px solid #e5e6eb;
+            border-radius: 12px 12px 12px 0;
+            padding: 10px 16px;
+        }
+        .chat-input {
+            display: flex;
+            padding: 16px;
+            border-top: 1px solid #e5e6eb;
+        }
+        #userInput {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #e5e6eb;
+            border-radius: 24px;
+            outline: none;
+            font-size: 14px;
+        }
+        #sendBtn {
+            margin-left: 12px;
+            padding: 12px 24px;
+            background-color: #4096ff;
+            color: white;
+            border: none;
+            border-radius: 24px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        #sendBtn:disabled {
+            background-color: #c0c4cc;
+            cursor: not-allowed;
+        }
+        .loading {
+            color: #909399;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">新员工入职智能助手</div>
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-input">
+            <input type="text" id="userInput" placeholder="请输入你的信息（英文名/邮箱/手机号等）..." />
+            <button id="sendBtn" onclick="sendMessage()">发送</button>
+        </div>
+    </div>
+
+    <script>
+        // 配置项（已帮你填好Token，无需修改）
+        const CONFIG = {
+            API_URL: "https://h69n9wp3wm.coze.site/stream_run",
+            TOKEN: "Bearer pat_nV10Tg01CNGC0cgBMIsz59uUkyubYx6QqydZ47K4ZdxbN8vD6NMkz1pCLc7S8eRw",
+            PROJECT_ID: "7615152223546392618"
+        };
+
+        // 初始化会话 ID（每次刷新生成新ID，避免上下文冲突）
+        let sessionId = Math.random().toString(36).substring(2, 18);
+        // 用于存储当前机器人回复的DOM元素ID
+        let currentBotMsgId = '';
+        
+        // 发送消息函数
+        async function sendMessage() {
+            const inputElement = document.getElementById('userInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const chatMessages = document.getElementById('chatMessages');
+            
+            const userText = inputElement.value.trim();
+            if (!userText) return;
+
+            // 禁用发送按钮
+            sendBtn.disabled = true;
+            
+            // 添加用户消息
+            chatMessages.innerHTML += `
+                <div class="message user-message">${userText}</div>
+            `;
+            inputElement.value = '';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            // 添加加载状态
+            const loadingId = `loading-${Date.now()}`;
+            chatMessages.innerHTML += `
+                <div class="message bot-message loading" id="${loadingId}">正在回复...</div>
+            `;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            try {
+                // 🔥 修复：请求体结构（type/session_id/project_id在content同级）
+                const payload = {
+                    content: {
+                        query: {
+                            prompt: [
+                                {
+                                    type: "text",
+                                    content: userText
+                                }
+                            ]
+                        },
+                        type: "query"
+                    },
+                    session_id: sessionId,  // 移到content外面
+                    project_id: CONFIG.PROJECT_ID,  // 移到content外面
+                    stream: true  // 显式指定流式响应
+                };
+
+                // 🔥 修复：添加跨域配置 + 兼容流式响应
+                const response = await fetch(CONFIG.API_URL, {
+                    method: 'POST',
+                    mode: 'cors',  // 跨域配置
+                    cache: 'no-cache',
+                    headers: {
+                        'Authorization': CONFIG.TOKEN,
+                        'Content-Type': 'application/json',
+                        'Accept': 'text/event-stream'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`请求失败 [${response.status}]：${errorText.substring(0, 100)}`);
+                }
+
+                // 🔥 修复：兼容所有浏览器的流式解析逻辑
+                const textDecoder = new TextDecoder();
+                let botResponse = '';
+                // 移除加载状态，创建机器人回复容器
+                document.getElementById(loadingId).remove();
+                currentBotMsgId = `bot-${Date.now()}`;
+                chatMessages.innerHTML += `
+                    <div class="message bot-message" id="${currentBotMsgId}"></div>
+                `;
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                // 处理流式响应
+                const reader = response.body.getReader();
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = textDecoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n').filter(line => line.trim() !== '');
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data === '[DONE]') continue;
+                            
+                            try {
+                                const parsed = JSON.parse(data);
+                                // 更新会话ID
+                                if (parsed.run_id) sessionId = parsed.run_id;
+                                // 拼接回复内容
+                                if (parsed.content?.answer) {
+                                    botResponse += parsed.content.answer;
+                                    // 更新界面
+                                    document.getElementById(currentBotMsgId).textContent = botResponse;
+                                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                                }
+                            } catch (e) {
+                                console.log('解析单条数据失败:', e, '数据内容:', data);
+                            }
+                        }
+                    }
+                }
+
+                // 如果没有回复内容
+                if (botResponse === '') {
+                    document.getElementById(currentBotMsgId).textContent = '暂无回复，请稍后再试';
+                }
+
+            } catch (error) {
+                console.error('发送消息失败:', error);
+                // 显示错误信息
+                document.getElementById(loadingId).innerHTML = `回复失败：${error.message}`;
+            } finally {
+                // 启用发送按钮
+                sendBtn.disabled = false;
+            }
+        }
+
+        // 回车发送
+        document.getElementById('userInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // 欢迎语
+        window.onload = function() {
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML += `
+                <div class="message bot-message">您好！我是新员工入职智能助手，请先提供您的英文名（用于工作邮箱），感谢配合！</div>
+            `;
+        };
+    </script>
+</body>
+</html>
